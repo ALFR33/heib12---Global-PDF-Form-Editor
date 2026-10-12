@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl" id="html-root">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>heib12 - Global PDF & Form Editor</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- PDF.js لقراءة وعرض المستندات -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  <!-- jsPDF لتصدير وتنزيل الملف النهائي -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Rubik:wght@400;500;700&family=Tajawal:wght@400;500;700&display=swap');
+    
+    body { 
+      font-family: 'Tajawal', 'Rubik', 'Inter', system-ui, -apple-system, sans-serif; 
+    }
+    
+    #canvas-wrapper { 
+      position: relative; 
+      display: inline-block; 
+    }
+    
+    .global-text-input {
+      position: absolute;
+      background: rgba(255, 255, 255, 0.95);
+      border: 1px solid #06b6d4;
+      color: #000;
+      font-weight: 600;
+      border-radius: 4px;
+      padding: 2px 6px;
+      outline: none;
+      z-index: 20;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    
+    .global-text-input:focus {
+      background: #ffffff;
+      border-color: #0284c7;
+      box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.35);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
+
+  <!-- شريط الرأس والأدوات العالمي -->
+  <header class="bg-slate-900 border-b border-slate-800 p-4 sticky top-0 z-50 shadow-xl">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+      
+      <!-- شعار heib12 -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 via-indigo-600 to-purple-600 flex items-center justify-center text-white shadow-lg">
+          <i class="fa-solid fa-file-pen text-xl"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">heib12</h1>
+            <span class="text-[10px] bg-cyan-950 text-cyan-300 border border-cyan-800 px-2 py-0.5 rounded-full font-mono">GLOBAL</span>
+          </div>
+          <p class="text-xs text-slate-400" id="ui-subtitle">מציג וממלא טפסים רב-לשוני | محرر وتعبئة المستندات العالمي</p>
+        </div>
+      </div>
+
+      <!-- أدوات التحكم واللغات وزر التبرع -->
+      <div class="flex flex-wrap items-center gap-3">
+        
+        <!-- زر التبرع المباشر عبر PayPal -->
+        <a href="https://www.paypal.me/YOUR_PAYPAL_NAME" target="_blank" class="px-3 py-1.5 bg-yellow-500 hover:bg-yellow-400 text-slate-950 font-bold rounded-xl text-xs shadow-lg flex items-center gap-1.5 transition-all">
+          <i class="fa-brands fa-paypal text-sm"></i>
+          <span id="btn-donate-text">תרומה / تبرع</span>
+        </a>
+
+        <!-- محول لغة الواجهة -->
+        <div class="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-1">
+          <button onclick="setLanguage('he')" class="px-2.5 py-1 text-xs font-bold rounded-lg transition-all text-cyan-400 hover:bg-slate-800">עברית</button>
+          <button onclick="setLanguage('ar')" class="px-2.5 py-1 text-xs font-bold rounded-lg transition-all text-slate-400 hover:text-white hover:bg-slate-800">العربية</button>
+          <button onclick="setLanguage('en')" class="px-2.5 py-1 text-xs font-bold rounded-lg transition-all text-slate-400 hover:text-white hover:bg-slate-800">English</button>
+        </div>
+
+        <!-- أدوات التحرير والتنقل (تظهر بعد رفع المستند) -->
+        <div id="editor-controls" class="hidden flex flex-wrap items-center gap-2">
+          
+          <!-- أزرار التصفح -->
+          <div class="flex items-center gap-2 bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-xl">
+            <button onclick="prevPage()" class="p-1 text-slate-400 hover:text-white" title="Previous Page"><i class="fa-solid fa-chevron-right"></i></button>
+            <span class="text-xs text-slate-200"><span id="lbl-page">עמוד</span> <span id="page-num">1</span> / <span id="page-count">1</span></span>
+            <button onclick="nextPage()" class="p-1 text-slate-400 hover:text-white" title="Next Page"><i class="fa-solid fa-chevron-left"></i></button>
+          </div>
+
+          <!-- حجم واللون -->
+          <input type="color" id="text-color" value="#000000" class="w-8 h-8 rounded cursor-pointer bg-transparent border-0" title="Color">
+          <select id="text-size" class="bg-slate-950 border border-slate-800 text-xs rounded-xl px-2 py-1.5 text-slate-200 outline-none">
+            <option value="13">13px</option>
+            <option value="16" selected>16px</option>
+            <option value="20">20px</option>
+            <option value="24">24px</option>
+          </select>
+
+          <!-- أزرار الإضافة والتنزيل -->
+          <button onclick="addTextAtCenter()" class="px-3 py-2 bg-cyan-600 hover:bg-cyan-500 font-bold rounded-xl text-xs text-white shadow flex items-center gap-1.5 transition-all">
+            <i class="fa-solid fa-plus"></i> <span id="btn-add-text">הוסף טקסט</span>
+          </button>
+
+          <button onclick="downloadPDF()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 font-bold rounded-xl text-xs text-white shadow-lg flex items-center gap-2 transition-all">
+            <i class="fa-solid fa-download"></i> <span id="btn-download">הורד PDF</span>
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+  </header>
+
+  <!-- مساحة العرض الرئيسية -->
+  <main class="flex-1 flex items-center justify-center p-6 overflow-auto bg-slate-950">
+    
+    <!-- واجهة التحميل الابتدائية -->
+    <div id="upload-box" class="text-center p-10 border-2 border-dashed border-slate-800 rounded-3xl max-w-lg bg-slate-900/80 shadow-2xl">
+      <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-800 flex items-center justify-center text-cyan-400 text-3xl shadow-inner">
+        <i class="fa-solid fa-globe"></i>
+      </div>
+      <h3 class="text-lg font-bold text-slate-200 mb-2" id="upload-title">heib12 - עורך המסמכים והטפסים העולמי</h3>
+      <p class="text-xs text-slate-400 mb-6 leading-relaxed" id="upload-desc">
+        טען כל טופס או מסמך בכל שפה (עברית, ערבית, אנגלית וכו').<br>
+        לחץ בכל מקום בטופס כדי להקליד ולמלא נתונים בצורה מדויקת.
+      </p>
+      
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
+        <label class="px-6 py-3 bg-gradient-to-r from-cyan-500 to-indigo-600 hover:opacity-95 text-white font-bold text-xs rounded-xl cursor-pointer transition-all inline-flex items-center gap-2 shadow-lg">
+          <i class="fa-solid fa-folder-open"></i> <span id="btn-choose-file">בחר קובץ (PDF / תמונה)</span>
+          <input type="file" id="file-input" accept="application/pdf, image/*" class="hidden" onchange="loadDocument(event)">
+        </label>
+
+        <!-- زر تبرع إضافي في الواجهة الرئيسية -->
+        <a href="https://www.paypal.me/YOUR_PAYPAL_NAME" target="_blank" class="px-6 py-3 bg-yellow-500 hover:bg-yellow-400 text-slate-950 font-bold text-xs rounded-xl transition-all inline-flex items-center gap-2 shadow-lg">
+          <i class="fa-brands fa-paypal"></i> <span id="btn-donate-main">תרומה / تبرع</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- لوحة الرسم والمحرر (تظهر عندرفع الملف) -->
+    <div id="editor-wrapper" class="hidden flex flex-col items-center">
+      <div id="canvas-wrapper" class="shadow-2xl border border-slate-800 rounded-lg overflow-hidden bg-white cursor-crosshair" onclick="handleCanvasClick(event)">
+        <canvas id="pdf-canvas"></canvas>
+        <div id="inputs-layer" class="absolute top-0 left-0 w-full h-full pointer-events-none"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    // التأكد من تحميل المكتبة
+    if (typeof pdfjsLib !== 'undefined') {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+    }
+
+    let pdfDoc = null;
+    let pageNum = 1;
+    let canvas = document.getElementById('pdf-canvas');
+    let ctx = canvas ? canvas.getContext('2d') : null;
+    let inputsLayer = document.getElementById('inputs-layer');
+
+    // ترجمات اللغات
+    const translations = {
+      he: {
+        dir: "rtl",
+        subtitle: "מציג וממלא טפסים רב-לשוני | محرر وتعبئة المستندات العالمي",
+        uploadTitle: "heib12 - עורך המסמכים והטפסים העולמי",
+        uploadDesc: "טען כל טופס או מסמך בכל שפה (עברית, ערבית, אנגלית וכו').<br>לחץ בכל מקום בטופס כדי להקליד ולמלא נתונים בצורה מדויקת.",
+        chooseFile: "בחר קובץ (PDF / תמונה)",
+        addText: "הוסף טקסט",
+        download: "הורד PDF",
+        page: "עמוד",
+        donate: "תרומה ב-PayPal"
+      },
+      ar: {
+        dir: "rtl",
+        subtitle: "محرر وتعبئة المستندات والاستمارات العالمي",
+        uploadTitle: "heib12 - محرر المستندات والاستمارات العالمي",
+        uploadDesc: "قم برفع أي توفس أو مستند بأي لغة (عبرية، عربية، إنجليزية... إلخ).<br>انقر في أي مكان داخل المستند للكتابة وتعبئة البيانات بدقة.",
+        chooseFile: "اختر ملف (PDF / صورة)",
+        addText: "إضافة نص",
+        download: "تنزيل الـ PDF",
+        page: "صفحة",
+        donate: "تبرع عبر PayPal"
+      },
+      en: {
+        dir: "ltr",
+        subtitle: "Global Multi-Language PDF & Form Editor",
+        uploadTitle: "heib12 - Global Document & Form Editor",
+        uploadDesc: "Upload any form or document in any language (Hebrew, Arabic, English, etc.).<br>Click anywhere on the document to type and fill out data accurately.",
+        chooseFile: "Choose File (PDF / Image)",
+        addText: "Add Text",
+        download: "Download PDF",
+        page: "Page",
+        donate: "Donate via PayPal"
+      }
+    };
+
+    function setLanguage(lang) {
+      const t = translations[lang];
+      document.getElementById('html-root').dir = t.dir;
+      document.getElementById('ui-subtitle').innerHTML = t.subtitle;
+      document.getElementById('upload-title').innerHTML = t.uploadTitle;
+      document.getElementById('upload-desc').innerHTML = t.uploadDesc;
+      document.getElementById('btn-choose-file').innerText = t.chooseFile;
+      
+      const btnAdd = document.getElementById('btn-add-text');
+      if (btnAdd) btnAdd.innerText = t.addText;
+      
+      const btnDl = document.getElementById('btn-download');
+      if (btnDl) btnDl.innerText = t.download;
+
+      const lblPg = document.getElementById('lbl-page');
+      if (lblPg) lblPg.innerText = t.page;
+
+      document.getElementById('btn-donate-text').innerText = t.donate;
+      document.getElementById('btn-donate-main').innerText = t.donate;
+    }
+
+    function loadDocument(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      document.getElementById('upload-box').classList.add('hidden');
+      document.getElementById('editor-wrapper').classList.remove('hidden');
+      document.getElementById('editor-controls').classList.remove('hidden');
+
+      const reader = new FileReader();
+
+      if (file.type === 'application/pdf') {
+        reader.onload = function(evt) {
+          const typedarray = new Uint8Array(evt.target.result);
+          pdfjsLib.getDocument(typedarray).promise.then(pdf => {
+            pdfDoc = pdf;
+            document.getElementById('page-count').innerText = pdf.numPages;
+            renderPage(pageNum);
+          });
+        };
+        reader.readAsArrayBuffer(file);
+      } else {
+        reader.onload = function(evt) {
+          const img = new Image();
+          img.onload = function() {
+            const maxWidth = 800;
+            const ratio = maxWidth / img.width;
+            canvas.width = maxWidth;
+            canvas.height = img.height * ratio;
+
+            inputsLayer.style.width = canvas.width + 'px';
+            inputsLayer.style.height = canvas.height + 'px';
+
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          };
+          img.src = evt.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function renderPage(num) {
+      pdfDoc.getPage(num).then(page => {
+        const viewport = page.getViewport({ scale: 1.5 });
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+
+        inputsLayer.style.width = viewport.width + 'px';
+        inputsLayer.style.height = viewport.height + 'px';
+
+        page.render({ canvasContext: ctx, viewport: viewport });
+        document.getElementById('page-num').innerText = num;
+      });
+    }
+
+    function handleCanvasClick(e) {
+      if (e.target.tagName === 'INPUT') return;
+
+      const rect = document.getElementById('canvas-wrapper').getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      createTextInput(x, y);
+    }
+
+    function addTextAtCenter() {
+      createTextInput(100, 100);
+    }
+
+    function createTextInput(x, y) {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'global-text-input pointer-events-auto';
+      input.placeholder = 'Type / הקלד / اكتب...';
+      input.dir = 'auto';
+
+      const fontSize = document.getElementById('text-size').value;
+      const color = document.getElementById('text-color').value;
+
+      input.style.fontSize = fontSize + 'px';
+      input.style.color = color;
+      input.style.left = (x - 10) + 'px';
+      input.style.top = (y - 12) + 'px';
+      input.style.minWidth = '160px';
+
+      makeDraggable(input);
+      inputsLayer.appendChild(input);
+      setTimeout(() => input.focus(), 50);
+    }
+
+    function makeDraggable(element) {
+      let posX = 0, posY = 0, mouseX = 0, mouseY = 0;
+
+      element.onmousedown = function(e) {
+        if (document.activeElement === element) return;
+
+        e.preventDefault();
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+
+        document.onmouseup = function() {
+          document.onmousemove = null;
+          document.onmouseup = null;
+        };
+
+        document.onmousemove = function(e) {
+          e.preventDefault();
+          posX = mouseX - e.clientX;
+          posY = mouseY - e.clientY;
+          mouseX = e.clientX;
+          mouseY = e.clientY;
+          element.style.top = (element.offsetTop - posY) + "px";
+          element.style.left = (element.offsetLeft - posX) + "px";
+        };
+      };
+    }
+
+    function prevPage() {
+      if (pageNum <= 1) return;
+      pageNum--;
+      renderPage(pageNum);
+    }
+
+    function nextPage() {
+      if (!pdfDoc || pageNum >= pdfDoc.numPages) return;
+      pageNum++;
+      renderPage(pageNum);
+    }
+
+    function downloadPDF() {
+      const { jsPDF } = window.jspdf;
+
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = canvas.height;
+      const tempCtx = tempCanvas.getContext('2d');
+
+      tempCtx.drawImage(canvas, 0, 0);
+
+      const inputs = document.querySelectorAll('.global-text-input');
+      inputs.forEach(inp => {
+        if (inp.value.trim() !== '') {
+          const fontSize = parseInt(inp.style.fontSize) || 16;
+          const x = parseInt(inp.style.left) + 6;
+          const y = parseInt(inp.style.top) + (fontSize * 1.1);
+
+          tempCtx.font = `bold ${fontSize}px Tajawal, Rubik, Inter, sans-serif`;
+          tempCtx.fillStyle = inp.style.color || "#000000";
+          tempCtx.fillText(inp.value, x, y);
+        }
+      });
+
+      const imgData = tempCanvas.toDataURL('image/jpeg', 1.0);
+      const pdf = new jsPDF({
+        orientation: tempCanvas.width > tempCanvas.height ? 'landscape' : 'portrait',
+        unit: 'px',
+        format: [tempCanvas.width, tempCanvas.height]
+      });
+
+      pdf.addImage(imgData, 'JPEG', 0, 0, tempCanvas.width, tempCanvas.height);
+      pdf.save('heib12_filled_document.pdf');
+    }
+  </script>
+</body>
+</html>
